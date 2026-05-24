@@ -210,9 +210,14 @@ def generate_ics(entries, output_path):
 
 # ── Orchestrator ─────────────────────────────────────────────────────────────
 
-def main():
+MAX_RETRIES = 3
+RETRY_DELAY = 2  # seconds between retries
+
+
+def compute_entries():
+    """Compute all holiday entries for the next ~13 months."""
     today = date.today()
-    end_date = today + timedelta(days=400)  # ~13 months to be safe
+    end_date = today + timedelta(days=400)
 
     entries = []
     current_year = today.year
@@ -225,25 +230,42 @@ def main():
                 if today <= dt <= end_date:
                     entries.append((dt, name_zh, name_en))
             except ValueError:
-                # Some rules may not resolve for every year (edge cases)
                 pass
 
     entries.sort(key=lambda x: x[0])
+    return entries, current_year, end_year
 
-    if not entries:
-        print("Error: no holidays generated", file=sys.stderr)
-        return 1
 
-    generate_ics(entries, TMP_FILE)
+def main():
+    import time
 
-    if not os.path.exists(TMP_FILE) or os.path.getsize(TMP_FILE) == 0:
-        print("Error: generated ICS file is empty", file=sys.stderr)
-        return 1
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            print(f"Attempt {attempt}/{MAX_RETRIES}: Computing holidays...")
+            entries, start_year, end_year = compute_entries()
 
-    os.replace(TMP_FILE, OUTPUT_FILE)
-    print(f"Successfully generated {OUTPUT_FILE} with {len(entries)} entries "
-          f"({current_year}-{end_year})")
-    return 0
+            if not entries:
+                raise ValueError("No holidays computed")
+
+            generate_ics(entries, TMP_FILE)
+
+            if not os.path.exists(TMP_FILE) or os.path.getsize(TMP_FILE) == 0:
+                raise RuntimeError("Generated ICS file is empty or missing")
+
+            os.replace(TMP_FILE, OUTPUT_FILE)
+            print(f"Successfully generated {OUTPUT_FILE} with {len(entries)} entries "
+                  f"({start_year}-{end_year})")
+            return 0
+
+        except Exception as e:
+            print(f"Attempt {attempt}/{MAX_RETRIES} failed: {e}", file=sys.stderr)
+            if attempt < MAX_RETRIES:
+                print(f"  Retrying in {RETRY_DELAY}s...", file=sys.stderr)
+                time.sleep(RETRY_DELAY)
+            else:
+                print("All retries exhausted. Keeping existing holidays.ics unchanged.",
+                      file=sys.stderr)
+                return 1
 
 
 if __name__ == "__main__":
