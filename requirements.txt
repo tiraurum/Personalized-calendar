@@ -1,0 +1,1 @@
+# No dependencies needed — main.py uses only Python stdlib

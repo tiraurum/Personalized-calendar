@@ -1,0 +1,40 @@
+name: Update Holidays Calendar
+
+on:
+  schedule:
+    # Quarterly: 1st day of Jan, Apr, Jul, Oct at 00:00 UTC
+    - cron: '0 0 1 1,4,7,10 *'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run holiday scraper
+        run: python main.py
+
+      - name: Commit and push updated ICS
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain holidays.ics)" ]; then
+            git add holidays.ics
+            git commit -m "chore: update holidays.ics [skip ci]"
+            git push
+          else
+            echo "No changes to holidays.ics"
+          fi

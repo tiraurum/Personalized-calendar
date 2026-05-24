@@ -141,3 +141,14 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+.vscode/
+.claude/
+.claude/settings.json
+docs/superpowers/specs/2026-05-24-holidays-ics-generator-design.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.tmp
